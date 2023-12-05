@@ -1,6 +1,8 @@
 // import and export all modules in src/BotBrew
-export * from "./BotBrew/modules/Bot";
-export * from "./BotBrew/modules/SlashCommand";
-export * from "./BotBrew/modules/SlashCommandCarousel";
-export * from "./BotBrew/modules/Languages";
-export * from "./BotBrew/modules/DiscordEvent";
+module.exports = {
+    ...require("./BotBrew/modules/Bot"),
+    ...require("./BotBrew/modules/SlashCommand"),
+    ...require("./BotBrew/modules/SlashCommandCarousel"),
+    ...require("./BotBrew/modules/Languages"),
+    ...require("./BotBrew/modules/DiscordEvent")
+}
