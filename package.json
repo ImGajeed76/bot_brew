@@ -10,8 +10,18 @@
   "scripts": {
     "prepublish": "tsc"
   },
-  "keywords": [],
-  "author": "",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ImGajeed76/bot_brew.git"
+  },
+  "keywords": [
+    "discord",
+    "bot",
+    "brew",
+    "botbrew"
+  ],
+  "homepage": "https://github.com/ImGajeed76/bot_brew#readme",
+  "author": "ImGajeed76",
   "license": "ISC",
   "devDependencies": {
     "@types/node": "^20.10.3",
