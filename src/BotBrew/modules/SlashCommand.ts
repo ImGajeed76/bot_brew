@@ -81,12 +81,23 @@ export class SlashCommand {
     buttons: Record<string, { button: ButtonBuilder, callback: ButtonExecuteFunction }> = {};
     actionRow = new ActionRowBuilder();
 
+    nameLanguageID: string | undefined;
+    descriptionLanguageID: string | undefined;
+
+    longDescription: string | undefined;
+    longDescriptionLanguageID: string | undefined;
+
     constructor() {
         this.builder = new SlashCommandBuilder();
     }
 
     setName(name: string) {
         this.builder.setName(name);
+        return this;
+    }
+
+    setNameLanguageID(id: string) {
+        this.nameLanguageID = id;
         return this;
     }
 
@@ -100,8 +111,23 @@ export class SlashCommand {
         return this;
     }
 
+    setDescriptionLanguageID(id: string) {
+        this.descriptionLanguageID = id;
+        return this;
+    }
+
     setDescriptionLocalizations(localizations: Record<string, string>) {
         this.builder.setDescriptionLocalizations(localizations);
+        return this;
+    }
+
+    setLongDescription(description: string) {
+        this.longDescription = description;
+        return this;
+    }
+
+    setLongDescriptionLanguageID(id: string) {
+        this.longDescriptionLanguageID = id;
         return this;
     }
 
@@ -208,12 +234,23 @@ export class SubCommand {
     buttons: Record<string, { button: ButtonBuilder, callback: ButtonExecuteFunction }> = {};
     actionRow = new ActionRowBuilder();
 
+    nameLanguageID: string | undefined;
+    descriptionLanguageID: string | undefined;
+
+    longDescription: string | undefined;
+    longDescriptionLanguageID: string | undefined;
+
     constructor() {
         this.builder = new SlashCommandSubcommandBuilder();
     }
 
     setName(name: string) {
         this.builder.setName(name);
+        return this;
+    }
+
+    setNameLanguageID(id: string) {
+        this.nameLanguageID = id;
         return this;
     }
 
@@ -227,8 +264,23 @@ export class SubCommand {
         return this;
     }
 
+    setDescriptionLanguageID(id: string) {
+        this.descriptionLanguageID = id;
+        return this;
+    }
+
     setDescriptionLocalizations(localizations: Record<string, string>) {
         this.builder.setDescriptionLocalizations(localizations);
+        return this;
+    }
+
+    setLongDescription(description: string) {
+        this.longDescription = description;
+        return this;
+    }
+
+    setLongDescriptionLanguageID(id: string) {
+        this.longDescriptionLanguageID = id;
         return this;
     }
 

@@ -3,4 +3,7 @@ lib
 .idea
 logs
 *.log
+test
+.env
+botbrew-*
 npm-debug.log*

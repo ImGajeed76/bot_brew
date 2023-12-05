@@ -1,10 +1,11 @@
-import {ChatInputCommandInteraction, Client, EmbedBuilder, GatewayIntentBits, REST, Routes} from "discord.js";
-import {gray, green, red, redBright, yellow} from 'chalk-advanced';
-import * as fs from "fs";
-import {SlashCommand, SubCommand} from "./SlashCommand";
+import {ButtonInteraction, ChatInputCommandInteraction, Client, EmbedBuilder, GatewayIntentBits} from "discord.js";
+import {green, red, redBright, yellow} from 'chalk-advanced';
+import {SlashCommand} from "./SlashCommand";
+import {Languages} from "./Languages";
+import {SlashCommandRegistrar} from "./SlashCommandRegistrar";
+import {DiscordEventRegistrar} from "./DiscordEventRegistrar";
 
 export class Bot {
-
     client: Client;
     clientReady: boolean = false;
     srcPath: string;
@@ -13,21 +14,29 @@ export class Bot {
     commands: Record<string, SlashCommand> = {};
     variables: Record<string, any> = {};
 
-    constructor(token: string, intents: GatewayIntentBits[], srcPath: string) {
+    languages: Languages | undefined;
+
+    guildId: string | undefined;
+
+    log: boolean = true;
+
+    constructor(token: string, intents: GatewayIntentBits[], srcPath: string, guildId?: string, log: boolean = true) {
         this.srcPath = srcPath;
         this.client = new Client({intents});
         this.token = token;
+        this.guildId = guildId;
+        this.log = log;
         this.setup();
     }
 
     async setup() {
-        console.log()
-        console.log(yellow("╭── Bot Starting..."));
-        console.log(yellow("│"));
+        this.logLine("")
+        this.logLine(yellow("╭── Bot Starting..."));
+        this.logLine(yellow("│"));
 
         this.client.once('ready', (readyClient) => {
-            console.log(yellow("├── ") + green("Logged in as " + readyClient.user?.tag));
-            console.log(yellow("│"));
+            this.logLine(yellow("├── ") + green("Logged in as " + readyClient.user?.tag));
+            this.logLine(yellow("│"));
             this.clientReady = true;
         });
 
@@ -37,164 +46,183 @@ export class Bot {
             await new Promise(resolve => setTimeout(resolve, 100));
         }
 
-        await this.registerCommands();
+        this.languages = new Languages(this.srcPath);
+        await this.registerAll();
+
+        this.logLine(yellow("╰── Bot Started!"));
+        this.logLine("");
     }
 
-    async registerCommands() {
-        this.commands = {};
-
-        // check if SlashCommands folder exists
-        if (!fs.existsSync(`${this.srcPath}/SlashCommands`)) {
-            console.log(red("├── ") + redBright("No SlashCommands folder found. Skipping command registration."));
-            console.log(yellow("│"));
-            return;
+    private logLine(content: string) {
+        if (this.log) {
+            console.log(content);
         }
+    }
 
-        console.log(yellow("├── ") + gray("Registering slash commands..."));
+    async registerAll() {
+        const commandRegistrar = new SlashCommandRegistrar(
+            this.srcPath,
+            this.languages,
+            this.log
+        );
+        await commandRegistrar.buildCommandList();
+        await commandRegistrar.registerCommands(
+            this.token,
+            this.client.user!.id,
+            this.guildId,
+        );
 
-        // iterate through folders in SlashCommands folder
-        fs.readdirSync(`${this.srcPath}/SlashCommands`).forEach((folder) => {
-            if (fs.lstatSync(`${this.srcPath}/SlashCommands/${folder}`).isDirectory()) {
-                const folderName = folder;
-                let slashCommand: SlashCommand | undefined = require(`${this.srcPath}/SlashCommands/${folder}/index.ts`);
-                if (slashCommand instanceof SlashCommand) {
-                    if (!slashCommand.builder.name) {
-                        slashCommand.setName(folderName);
-                    }
-                    console.log(yellow("│") + gray("      - " + slashCommand.builder.name));
-                }
+        this.commands = commandRegistrar.commands;
 
-                if (slashCommand) {
-                    fs.readdirSync(`${this.srcPath}/SlashCommands/${folder}`).forEach((file) => {
-                        if (fs.lstatSync(`${this.srcPath}/SlashCommands/${folder}/${file}`).isDirectory()) {
-                            const subFolderName = file;
+        const eventRegistrar = new DiscordEventRegistrar(
+            this.srcPath,
+            this.log
+        );
+        await eventRegistrar.buildEventList();
+        await eventRegistrar.registerEvents(this.client);
 
-                            fs.readdirSync(`${this.srcPath}/SlashCommands/${folder}/${file}`).forEach((subFile) => {
-                                if (subFile.endsWith('index.ts')) {
-                                    const command = require(`${this.srcPath}/SlashCommands/${folder}/${subFolderName}/${subFile}`);
-                                    if (command instanceof SubCommand) {
-                                        if (!command.builder.name) {
-                                            command.setName(subFolderName);
-                                        }
+        await this.registerInteractionEvent();
+    }
 
-                                        if (slashCommand) {
-                                            slashCommand.addSubcommand(command.builder.name, command);
-                                            console.log(yellow("│") + gray("      - " + slashCommand.builder.name + "/" + command.builder.name));
-                                        }
-                                    }
-                                }
-                            });
-                        }
-                    });
-
-                    this.commands[slashCommand.builder.name] = slashCommand;
-                }
-            }
-        });
-
-        const rest = new REST({version: '9'}).setToken(this.token);
-
-        try {
-            console.log(yellow("├── ") + gray("Registering commands..."));
-
-            await rest.put(
-                Routes.applicationGuildCommands(this.client.user!.id, "828996782830125057"),
-                {body: Object.values(this.commands).map(command => command.toJSON())},
-            );
-
-            console.log(yellow("├── ") + green("Successfully registered commands!"));
-            console.log(yellow("│"));
-        } catch (error) {
-            console.log(red("├── ") + redBright("An error occurred while registering commands:"));
-            console.log(red("│") + redBright("      - " + error));
-        }
-
+    async registerInteractionEvent() {
         this.client.on('interactionCreate', async (interaction) => {
-
             if (interaction.isButton()) {
-                const customId = interaction.customId;
-
-                for (const commandKey in this.commands) {
-                    const command = this.commands[commandKey];
-                    for (const buttonKey in command.buttons) {
-                        if (buttonKey === customId) {
-                            await command.buttons[buttonKey].callback(interaction, {
-                                actionRow: command.actionRow,
-                                client: this.client,
-                                getMessageVariable: (name: string) => {
-                                    return this.variables[`${interaction.message!.id}/${name}`];
-                                },
-                                setMessageVariable: (name: string, value: any) => {
-                                    this.variables[`${interaction.message!.id}/${name}`] = value;
-                                },
-                                getUserVariable: (name: string) => {
-                                    return this.variables[`${interaction.user.id}/${name}`];
-                                },
-                                setUserVariable: (name: string, value: any) => {
-                                    this.variables[`${interaction.user.id}/${name}`] = value;
-                                },
-                            });
-                            break;
-                        }
-                    }
-                }
+                await this.buttonInteraction(interaction);
             }
 
             if (interaction.isChatInputCommand()) {
-                const command = this.commands[interaction.commandName];
+                await this.chatInteraction(interaction);
+            }
+        });
+    }
 
-                if (!command) {
-                    await interaction.reply({
-                        content: 'An error occurred while executing this command!',
-                        ephemeral: true
-                    });
-                    return;
-                }
 
-                const subCommandName = interaction.options.getSubcommand(false);
+    async buttonInteraction(interaction: ButtonInteraction) {
+        const customId = interaction.customId;
 
-                try {
-                    if (subCommandName) {
-                        const subCommand = command.subCommands[subCommandName];
-                        if (subCommand) {
-                            await subCommand.executeFunction(interaction as ChatInputCommandInteraction, {
-                                actionRow: subCommand.actionRow,
-                                client: this.client,
-                                getUserVariable: (name: string) => {
-                                    return this.variables[`${interaction.user.id}/${name}`];
-                                },
-                                setUserVariable: (name: string, value: any) => {
-                                    this.variables[`${interaction.user.id}/${name}`] = value;
-                                },
-                            });
-                        }
-                    }
-
-                    await command.executeFunction(interaction as ChatInputCommandInteraction, {
+        for (const commandKey in this.commands) {
+            const command = this.commands[commandKey];
+            for (const buttonKey in command.buttons) {
+                if (buttonKey === customId) {
+                    await command.buttons[buttonKey].callback(interaction, {
                         actionRow: command.actionRow,
                         client: this.client,
+                        getMessageVariable: (name: string) => {
+                            return this.variables[`${interaction.message!.id}/${name}`];
+                        },
+                        setMessageVariable: (name: string, value: any) => {
+                            this.variables[`${interaction.message!.id}/${name}`] = value;
+                        },
                         getUserVariable: (name: string) => {
                             return this.variables[`${interaction.user.id}/${name}`];
                         },
                         setUserVariable: (name: string, value: any) => {
                             this.variables[`${interaction.user.id}/${name}`] = value;
                         },
+                        getUserMessageInLanguage: (id: string) => {
+                            if (this.languages) {
+                                const language = this.languages.getLanguage(interaction.locale);
+                                if (language.get(id)) {
+                                    return language.get(id);
+                                }
+                                return undefined;
+                            }
+                            return undefined;
+                        },
+                        getServerMessageInLanguage: (id: string) => {
+                            if (this.languages) {
+                                const language = this.languages.getLanguage(interaction.guild!.preferredLocale);
+                                if (language.get(id)) {
+                                    return language.get(id);
+                                }
+                                return undefined;
+                            }
+                            return undefined;
+                        }
                     });
-                } catch (error) {
-                    console.log(red("├── ") + redBright("An error occurred while executing command '" + command.builder.name + "':"));
-                    console.log(red("│") + redBright("      - " + error));
-
-                    const errorEmbed = new EmbedBuilder()
-                        .setColor('#f54242') // Red color
-                        .setDescription('There was an error while executing this command!');
-
-                    if (interaction.replied || interaction.deferred) {
-                        await interaction.followUp({embeds: [errorEmbed], ephemeral: true});
-                    } else {
-                        await interaction.reply({embeds: [errorEmbed], ephemeral: true});
-                    }
+                    break;
                 }
             }
-        });
+        }
+    }
+
+    async chatInteraction(interaction: ChatInputCommandInteraction) {
+        const command = this.commands[interaction.commandName];
+
+        if (!command) {
+            await interaction.reply({
+                content: 'An error occurred while executing this command!',
+                ephemeral: true
+            });
+            return;
+        }
+
+        const subCommandName = interaction.options.getSubcommand(false);
+
+        try {
+            const executeArguments = {
+                client: this.client,
+                getMessageVariable: (message_id: string, name: string) => {
+                    return this.variables[`${message_id}/${name}`];
+                },
+                setMessageVariable: (message_id: string, name: string, value: any) => {
+                    this.variables[`${message_id}/${name}`] = value;
+                },
+                getUserVariable: (name: string) => {
+                    return this.variables[`${interaction.user.id}/${name}`];
+                },
+                setUserVariable: (name: string, value: any) => {
+                    this.variables[`${interaction.user.id}/${name}`] = value;
+                },
+                getUserMessageInLanguage: (id: string) => {
+                    if (this.languages) {
+                        const language = this.languages.getLanguage(interaction.locale);
+                        if (language.get(id)) {
+                            return language.get(id);
+                        }
+                        return undefined;
+                    }
+                    return undefined;
+                },
+                getServerMessageInLanguage: (id: string) => {
+                    if (this.languages) {
+                        const language = this.languages.getLanguage(interaction.guild!.preferredLocale);
+                        if (language.get(id)) {
+                            return language.get(id);
+                        }
+                        return undefined;
+                    }
+                    return undefined;
+                }
+            }
+
+            if (subCommandName) {
+                const subCommand = command.subCommands[subCommandName];
+                if (subCommand) {
+                    await subCommand.executeFunction(interaction as ChatInputCommandInteraction, {
+                        actionRow: subCommand.actionRow,
+                        ...executeArguments
+                    });
+                }
+            }
+
+            await command.executeFunction(interaction as ChatInputCommandInteraction, {
+                actionRow: command.actionRow,
+                ...executeArguments
+            });
+        } catch (error) {
+            this.logLine(red("├── ") + redBright("An error occurred while executing command '" + command.builder.name + "':"));
+            this.logLine(red("│") + redBright("      - " + error));
+
+            const errorEmbed = new EmbedBuilder()
+                .setColor('#f54242') // Red color
+                .setDescription('There was an error while executing this command!');
+
+            if (interaction.replied || interaction.deferred) {
+                await interaction.followUp({embeds: [errorEmbed], ephemeral: true});
+            } else {
+                await interaction.reply({embeds: [errorEmbed], ephemeral: true});
+            }
+        }
     }
 }

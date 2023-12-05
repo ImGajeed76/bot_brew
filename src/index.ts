@@ -2,3 +2,4 @@
 export * from "./BotBrew/modules/Bot";
 export * from "./BotBrew/modules/SlashCommand";
 export * from "./BotBrew/modules/SlashCommandCarousel";
+export * from "./BotBrew/modules/Languages";
