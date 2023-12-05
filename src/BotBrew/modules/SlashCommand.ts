@@ -16,9 +16,10 @@ import {
     SlashCommandMentionableOption,
     SlashCommandRoleOption
 } from "@discordjs/builders/dist";
+import {Store} from "./Store";
 
-export type SlashCommandExecuteFunction = (interaction: ChatInputCommandInteraction, options: Record<string, any>) => Promise<void>;
-export type ButtonExecuteFunction = (interaction: ButtonInteraction, options: Record<string, any>) => Promise<void>;
+export type SlashCommandExecuteFunction = (interaction: ChatInputCommandInteraction, userStore: Store, options: Record<string, any>) => Promise<void>;
+export type ButtonExecuteFunction = (interaction: ButtonInteraction, userStore: Store, messageStore: Store, options: Record<string, any>) => Promise<void>;
 
 export type StringOption =
     Omit<SlashCommandStringOption, 'addChoices'>
@@ -71,163 +72,8 @@ export type ButtonOptions = {
     url?: string
 }
 
-export class SlashCommand {
-
-    builder: SlashCommandBuilder;
-    executeFunction: SlashCommandExecuteFunction = async () => {
-    };
-    subCommands: Record<string, SubCommand> = {};
-
-    buttons: Record<string, { button: ButtonBuilder, callback: ButtonExecuteFunction }> = {};
-    actionRow = new ActionRowBuilder();
-
-    nameLanguageID: string | undefined;
-    descriptionLanguageID: string | undefined;
-
-    longDescription: string | undefined;
-    longDescriptionLanguageID: string | undefined;
-
-    constructor() {
-        this.builder = new SlashCommandBuilder();
-    }
-
-    setName(name: string) {
-        this.builder.setName(name);
-        return this;
-    }
-
-    setNameLanguageID(id: string) {
-        this.nameLanguageID = id;
-        return this;
-    }
-
-    setNameLocalizations(localizations: Record<string, string>) {
-        this.builder.setNameLocalizations(localizations);
-        return this;
-    }
-
-    setDescription(description: string) {
-        this.builder.setDescription(description);
-        return this;
-    }
-
-    setDescriptionLanguageID(id: string) {
-        this.descriptionLanguageID = id;
-        return this;
-    }
-
-    setDescriptionLocalizations(localizations: Record<string, string>) {
-        this.builder.setDescriptionLocalizations(localizations);
-        return this;
-    }
-
-    setLongDescription(description: string) {
-        this.longDescription = description;
-        return this;
-    }
-
-    setLongDescriptionLanguageID(id: string) {
-        this.longDescriptionLanguageID = id;
-        return this;
-    }
-
-    addStringOption(option: StringOption) {
-        this.builder.addStringOption(option);
-        return this;
-    }
-
-    addNumberOption(option: NumberOption) {
-        this.builder.addNumberOption(option);
-        return this;
-    }
-
-    addIntegerOption(option: IntegerOption) {
-        this.builder.addIntegerOption(option);
-        return this;
-    }
-
-    addBooleanOption(option: BooleanOption) {
-        this.builder.addBooleanOption(option);
-        return this;
-    }
-
-    addUserOption(option: UserOption) {
-        this.builder.addUserOption(option);
-        return this;
-    }
-
-    addChannelOption(option: ChannelOption) {
-        this.builder.addChannelOption(option);
-        return this;
-    }
-
-    addRoleOption(option: RoleOption) {
-        this.builder.addRoleOption(option);
-        return this;
-    }
-
-    addAttachmentOption(option: AttachmentOption) {
-        this.builder.addAttachmentOption(option);
-        return this;
-    }
-
-    addMentionableOption(option: MentionableOption) {
-        this.builder.addMentionableOption(option);
-        return this;
-    }
-
-    onExecute(func: SlashCommandExecuteFunction) {
-        this.executeFunction = func;
-        return this;
-    }
-
-    addSubcommand(name: string, subCommand: SubCommand) {
-        this.subCommands[name] = subCommand;
-        return this;
-    }
-
-    addButton(options: ButtonOptions, callback: ButtonExecuteFunction) {
-        const id = this.builder.name + options.customId;
-
-        const button = new ButtonBuilder()
-            .setLabel(options.label)
-            .setStyle(options.style)
-            .setCustomId(id);
-
-        if (options.disabled !== undefined) {
-            button.setDisabled(options.disabled);
-        }
-
-        if (options.emoji) {
-            button.setEmoji(options.emoji);
-        }
-
-        if (options.url) {
-            button.setURL(options.url);
-        }
-
-        this.buttons[id] = {
-            button: button,
-            callback: callback
-        }
-
-        this.actionRow = new ActionRowBuilder()
-            .addComponents(Object.values(this.buttons).map(button => button.button));
-
-        return this;
-    }
-
-    toJSON() {
-        for (const subCommand in this.subCommands) {
-            this.builder.addSubcommand(this.subCommands[subCommand].builder);
-        }
-
-        return this.builder.toJSON();
-    }
-}
-
 export class SubCommand {
-    builder: SlashCommandSubcommandBuilder;
+    builder: SlashCommandSubcommandBuilder | SlashCommandBuilder;
     executeFunction: SlashCommandExecuteFunction = async () => {
     };
 
@@ -366,6 +212,41 @@ export class SubCommand {
     }
 
     toJSON() {
+        return this.builder.toJSON();
+    }
+}
+
+export class SlashCommand extends SubCommand {
+
+    override builder: SlashCommandBuilder;
+    executeFunction: SlashCommandExecuteFunction = async () => {
+    };
+    subCommands: Record<string, SubCommand> = {};
+
+    buttons: Record<string, { button: ButtonBuilder, callback: ButtonExecuteFunction }> = {};
+    actionRow = new ActionRowBuilder();
+
+    nameLanguageID: string | undefined;
+    descriptionLanguageID: string | undefined;
+
+    longDescription: string | undefined;
+    longDescriptionLanguageID: string | undefined;
+
+    constructor() {
+        super();
+        this.builder = new SlashCommandBuilder();
+    }
+
+    addSubcommand(name: string, subCommand: SubCommand) {
+        this.subCommands[name] = subCommand;
+        return this;
+    }
+
+    override toJSON() {
+        for (const subCommand in this.subCommands) {
+            this.builder.addSubcommand(this.subCommands[subCommand].builder as SlashCommandSubcommandBuilder);
+        }
+
         return this.builder.toJSON();
     }
 }

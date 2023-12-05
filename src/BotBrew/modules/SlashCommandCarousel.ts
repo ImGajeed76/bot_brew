@@ -20,15 +20,15 @@ export class SlashCommandCarousel extends SlashCommand {
                 style: previousButton.style,
                 customId: "carousel_previous"
             },
-            async (interaction, options) => {
-                let page = options.getMessageVariable("page") ?? 0;
+            async (interaction, userStore, messageStore, options) => {
+                let page = messageStore.get("page") ?? 0;
                 page--;
                 if (page < 0) page = this.pages.length - 1;
                 await interaction.update({
                     embeds: [this.pages[page]],
                     components: [options.actionRow]
                 });
-                options.setMessageVariable("page", page);
+                messageStore.set("page", page);
             }
         )
 
@@ -38,19 +38,19 @@ export class SlashCommandCarousel extends SlashCommand {
                 style: nextButton.style,
                 customId: "carousel_next"
             },
-            async (interaction, options) => {
-                let page = options.getMessageVariable("page") ?? 0;
+            async (interaction, userStore, messageStore, options) => {
+                let page = messageStore.get("page") ?? 0;
                 page++;
                 if (page >= this.pages.length) page = 0;
                 await interaction.update({
                     embeds: [this.pages[page]],
                     components: [options.actionRow]
                 });
-                options.setMessageVariable("page", page);
+                messageStore.set("page", page);
             }
         )
 
-        this.onExecute(async (interaction, options) => {
+        this.onExecute(async (interaction, userStore, options) => {
             await interaction.reply({
                 embeds: [this.pages[0]],
                 components: [options.actionRow]

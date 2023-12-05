@@ -1,9 +1,17 @@
-import {ButtonInteraction, ChatInputCommandInteraction, Client, EmbedBuilder, GatewayIntentBits} from "discord.js";
+import {
+    ButtonInteraction,
+    ChatInputCommandInteraction,
+    Client,
+    EmbedBuilder,
+    GatewayIntentBits,
+    Interaction
+} from "discord.js";
 import {green, red, redBright, yellow} from 'chalk-advanced';
 import {SlashCommand} from "./SlashCommand";
 import {Languages} from "./Languages";
 import {SlashCommandRegistrar} from "./SlashCommandRegistrar";
 import {DiscordEventRegistrar} from "./DiscordEventRegistrar";
+import {Store} from "./Store";
 
 export class Bot {
     client: Client;
@@ -12,7 +20,7 @@ export class Bot {
     token: string;
 
     commands: Record<string, SlashCommand> = {};
-    variables: Record<string, any> = {};
+    stores: Record<string, Store> = {};
 
     languages: Languages | undefined;
 
@@ -34,7 +42,7 @@ export class Bot {
         this.logLine(yellow("╭── Bot Starting..."));
         this.logLine(yellow("│"));
 
-        this.client.once('ready', (readyClient) => {
+        this.client.once('ready', (readyClient: Client) => {
             this.logLine(yellow("├── ") + green("Logged in as " + readyClient.user?.tag));
             this.logLine(yellow("│"));
             this.clientReady = true;
@@ -85,7 +93,7 @@ export class Bot {
     }
 
     async registerInteractionEvent() {
-        this.client.on('interactionCreate', async (interaction) => {
+        this.client.on('interactionCreate', async (interaction: Interaction) => {
             if (interaction.isButton()) {
                 await this.buttonInteraction(interaction);
             }
@@ -104,42 +112,34 @@ export class Bot {
             const command = this.commands[commandKey];
             for (const buttonKey in command.buttons) {
                 if (buttonKey === customId) {
-                    await command.buttons[buttonKey].callback(interaction, {
-                        actionRow: command.actionRow,
-                        client: this.client,
-                        getMessageVariable: (name: string) => {
-                            return this.variables[`${interaction.message!.id}/${name}`];
-                        },
-                        setMessageVariable: (name: string, value: any) => {
-                            this.variables[`${interaction.message!.id}/${name}`] = value;
-                        },
-                        getUserVariable: (name: string) => {
-                            return this.variables[`${interaction.user.id}/${name}`];
-                        },
-                        setUserVariable: (name: string, value: any) => {
-                            this.variables[`${interaction.user.id}/${name}`] = value;
-                        },
-                        getUserMessageInLanguage: (id: string) => {
-                            if (this.languages) {
-                                const language = this.languages.getLanguage(interaction.locale);
-                                if (language.get(id)) {
-                                    return language.get(id);
+                    await command.buttons[buttonKey].callback(
+                        interaction,
+                        this.stores[interaction.user.id] ?? (() => {this.stores[interaction.user.id] = new Store(); return this.stores[interaction.user.id];})(),
+                        this.stores[interaction.message.id] ?? (() => {this.stores[interaction.message.id] = new Store(); return this.stores[interaction.message.id];})(),
+                        {
+                            actionRow: command.actionRow,
+                            client: this.client,
+                            getUserMessageInLanguage: (key: string) => {
+                                if (this.languages) {
+                                    const language = this.languages.getLanguage(interaction.locale);
+                                    if (language.get(key)) {
+                                        return language.get(key);
+                                    }
+                                    return undefined;
+                                }
+                                return undefined;
+                            },
+                            getServerMessageInLanguage: (key: string) => {
+                                if (this.languages) {
+                                    const language = this.languages.getLanguage(interaction.guild!.preferredLocale);
+                                    if (language.get(key)) {
+                                        return language.get(key);
+                                    }
+                                    return undefined;
                                 }
                                 return undefined;
                             }
-                            return undefined;
-                        },
-                        getServerMessageInLanguage: (id: string) => {
-                            if (this.languages) {
-                                const language = this.languages.getLanguage(interaction.guild!.preferredLocale);
-                                if (language.get(id)) {
-                                    return language.get(id);
-                                }
-                                return undefined;
-                            }
-                            return undefined;
-                        }
-                    });
+                        });
                     break;
                 }
             }
@@ -162,33 +162,27 @@ export class Bot {
         try {
             const executeArguments = {
                 client: this.client,
-                getMessageVariable: (message_id: string, name: string) => {
-                    return this.variables[`${message_id}/${name}`];
+                createMessageStore: (messageId: string) => {
+                    if (!this.stores[messageId]) {
+                        this.stores[messageId] = new Store();
+                    }
+                    return this.stores[messageId];
                 },
-                setMessageVariable: (message_id: string, name: string, value: any) => {
-                    this.variables[`${message_id}/${name}`] = value;
-                },
-                getUserVariable: (name: string) => {
-                    return this.variables[`${interaction.user.id}/${name}`];
-                },
-                setUserVariable: (name: string, value: any) => {
-                    this.variables[`${interaction.user.id}/${name}`] = value;
-                },
-                getUserMessageInLanguage: (id: string) => {
+                getUserMessageInLanguage: (key: string) => {
                     if (this.languages) {
                         const language = this.languages.getLanguage(interaction.locale);
-                        if (language.get(id)) {
-                            return language.get(id);
+                        if (language.get(key)) {
+                            return language.get(key);
                         }
                         return undefined;
                     }
                     return undefined;
                 },
-                getServerMessageInLanguage: (id: string) => {
+                getServerMessageInLanguage: (key: string) => {
                     if (this.languages) {
                         const language = this.languages.getLanguage(interaction.guild!.preferredLocale);
-                        if (language.get(id)) {
-                            return language.get(id);
+                        if (language.get(key)) {
+                            return language.get(key);
                         }
                         return undefined;
                     }
@@ -199,17 +193,23 @@ export class Bot {
             if (subCommandName) {
                 const subCommand = command.subCommands[subCommandName];
                 if (subCommand) {
-                    await subCommand.executeFunction(interaction as ChatInputCommandInteraction, {
+                    await subCommand.executeFunction(
+                        interaction as ChatInputCommandInteraction,
+                        this.stores[interaction.user.id] ?? (() => {this.stores[interaction.user.id] = new Store(); return this.stores[interaction.user.id];})(),
+                        {
                         actionRow: subCommand.actionRow,
                         ...executeArguments
                     });
                 }
             }
 
-            await command.executeFunction(interaction as ChatInputCommandInteraction, {
-                actionRow: command.actionRow,
-                ...executeArguments
-            });
+            await command.executeFunction(
+                interaction as ChatInputCommandInteraction,
+                this.stores[interaction.user.id] ?? (() => {this.stores[interaction.user.id] = new Store(); return this.stores[interaction.user.id];})(),
+                {
+                    actionRow: command.actionRow,
+                    ...executeArguments
+                });
         } catch (error) {
             this.logLine(red("├── ") + redBright("An error occurred while executing command '" + command.builder.name + "':"));
             this.logLine(red("│") + redBright("      - " + error));
