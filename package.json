@@ -1,6 +1,6 @@
 {
   "name": "botbrew",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "A npm package for easy creation of discord bots",
   "main": "src/index.ts",
   "types": "src/index.d.ts",
