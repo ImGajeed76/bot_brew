@@ -2,14 +2,16 @@
   "name": "botbrew",
   "version": "1.0.4",
   "description": "A npm package for easy creation of discord bots",
-  "main": "src/index.ts",
-  "types": "src/index.d.ts",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "type": "module",
   "files": [
-    "src"
+    "lib",
+    "README.md",
+    "LICENSE"
   ],
   "scripts": {
-    "prepublish": "tsc",
-    "test": "nodemon --exec ts-node test/index.ts"
+    "build": "tsc && npm pack"
   },
   "repository": {
     "type": "git",

@@ -1,4 +1,4 @@
-import {SlashCommand} from "./SlashCommand";
+import {SlashCommand} from "./SlashCommand.js";
 import {ButtonStyle, EmbedBuilder} from "discord.js";
 
 export class SlashCommandCarousel extends SlashCommand {

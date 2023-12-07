@@ -1,6 +1,8 @@
 import fs from "fs";
-import {gray, green, red, redBright, yellow} from "chalk-advanced";
+import chalk from "chalk-advanced";
 import * as toml from "toml";
+
+const {gray, red, redBright, yellow} = chalk;
 
 export enum DiscordLanguages {
     EnglishUS = "en-US",
@@ -40,6 +42,7 @@ export class Languages {
     srcPath: string;
 
     languages: Record<string, Record<string, any>> = {};
+
     constructor(srcPath: string) {
         this.srcPath = srcPath;
         this.loadLanguages();
@@ -78,6 +81,7 @@ export class Languages {
 
 export class Language {
     language: Record<string, any>;
+
     constructor(language: Record<string, any>) {
         this.language = language;
     }

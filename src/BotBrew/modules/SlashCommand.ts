@@ -16,7 +16,7 @@ import {
     SlashCommandMentionableOption,
     SlashCommandRoleOption
 } from "@discordjs/builders/dist";
-import {Store} from "./Store";
+import {Store} from "./Store.js";
 
 export type SlashCommandExecuteFunction = (interaction: ChatInputCommandInteraction, userStore: Store, options: Record<string, any>) => Promise<void>;
 export type ButtonExecuteFunction = (interaction: ButtonInteraction, userStore: Store, messageStore: Store, options: Record<string, any>) => Promise<void>;

@@ -6,12 +6,15 @@ import {
     GatewayIntentBits,
     Interaction
 } from "discord.js";
-import {green, red, redBright, yellow} from 'chalk-advanced';
-import {SlashCommand} from "./SlashCommand";
-import {Languages} from "./Languages";
-import {SlashCommandRegistrar} from "./SlashCommandRegistrar";
-import {DiscordEventRegistrar} from "./DiscordEventRegistrar";
-import {Store} from "./Store";
+
+import chalk from 'chalk-advanced';
+import {SlashCommand} from "./SlashCommand.js";
+import {Languages} from "./Languages.js";
+import {SlashCommandRegistrar} from "./SlashCommandRegistrar.js";
+import {DiscordEventRegistrar} from "./DiscordEventRegistrar.js";
+import {Store} from "./Store.js";
+
+const {green, red, redBright, yellow} = chalk;
 
 export class Bot {
     client: Client;
@@ -114,8 +117,14 @@ export class Bot {
                 if (buttonKey === customId) {
                     await command.buttons[buttonKey].callback(
                         interaction,
-                        this.stores[interaction.user.id] ?? (() => {this.stores[interaction.user.id] = new Store(); return this.stores[interaction.user.id];})(),
-                        this.stores[interaction.message.id] ?? (() => {this.stores[interaction.message.id] = new Store(); return this.stores[interaction.message.id];})(),
+                        this.stores[interaction.user.id] ?? (() => {
+                            this.stores[interaction.user.id] = new Store();
+                            return this.stores[interaction.user.id];
+                        })(),
+                        this.stores[interaction.message.id] ?? (() => {
+                            this.stores[interaction.message.id] = new Store();
+                            return this.stores[interaction.message.id];
+                        })(),
                         {
                             actionRow: command.actionRow,
                             client: this.client,
@@ -195,17 +204,23 @@ export class Bot {
                 if (subCommand) {
                     await subCommand.executeFunction(
                         interaction as ChatInputCommandInteraction,
-                        this.stores[interaction.user.id] ?? (() => {this.stores[interaction.user.id] = new Store(); return this.stores[interaction.user.id];})(),
+                        this.stores[interaction.user.id] ?? (() => {
+                            this.stores[interaction.user.id] = new Store();
+                            return this.stores[interaction.user.id];
+                        })(),
                         {
-                        actionRow: subCommand.actionRow,
-                        ...executeArguments
-                    });
+                            actionRow: subCommand.actionRow,
+                            ...executeArguments
+                        });
                 }
             }
 
             await command.executeFunction(
                 interaction as ChatInputCommandInteraction,
-                this.stores[interaction.user.id] ?? (() => {this.stores[interaction.user.id] = new Store(); return this.stores[interaction.user.id];})(),
+                this.stores[interaction.user.id] ?? (() => {
+                    this.stores[interaction.user.id] = new Store();
+                    return this.stores[interaction.user.id];
+                })(),
                 {
                     actionRow: command.actionRow,
                     ...executeArguments

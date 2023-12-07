@@ -4,10 +4,12 @@ export type DiscordCallback = (...args: any[]) => Awaitable<void>;
 
 export class DiscordEvent {
     name: string = "";
-    callback: DiscordCallback = () => {};
+    callback: DiscordCallback = () => {
+    };
     once: boolean = false;
 
-    constructor() {}
+    constructor() {
+    }
 
     setName(name: string) {
         this.name = name;

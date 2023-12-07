@@ -1,8 +1,10 @@
 import fs from "fs";
-import {gray, green, red, redBright, yellow} from "chalk-advanced";
-import {SlashCommand, SubCommand} from "./SlashCommand";
-import {Languages} from "./Languages";
+import chalk from "chalk-advanced";
+import {SlashCommand, SubCommand} from "./SlashCommand.js";
+import {Languages} from "./Languages.js";
 import {REST, Routes} from "discord.js";
+
+const {gray, green, red, redBright, yellow} = chalk;
 
 export class SlashCommandRegistrar {
     srcPath: string;
@@ -15,7 +17,7 @@ export class SlashCommandRegistrar {
         this.languages = languages;
         this.log = log;
     }
-    
+
     private logLine(content: string) {
         if (this.log) {
             console.log(content);
@@ -35,10 +37,31 @@ export class SlashCommandRegistrar {
         this.logLine(yellow("├── ") + gray("Loading slash commands..."));
 
         // iterate through folders in SlashCommands folder
-        fs.readdirSync(`${this.srcPath}/SlashCommands`).forEach((folder) => {
+        const commandFolders = fs.readdirSync(`${this.srcPath}/SlashCommands`)
+        for (const folder of commandFolders) {
             if (fs.lstatSync(`${this.srcPath}/SlashCommands/${folder}`).isDirectory()) {
                 const folderName = folder;
-                let slashCommand: SlashCommand | undefined = require(`${this.srcPath}/SlashCommands/${folder}/index.ts`);
+                let slashCommand: SlashCommand | undefined = undefined;
+
+                const jsOrTsFiles = fs.readdirSync(`${this.srcPath}/SlashCommands/${folder}`)
+
+                try {
+                    let filePath = "";
+                    if (jsOrTsFiles.includes('index.ts')) {
+                        filePath = `${this.srcPath}/SlashCommands/${folder}/index.ts`;
+                    } else if (jsOrTsFiles.includes('index.js')) {
+                        filePath = `${this.srcPath}/SlashCommands/${folder}/index.js`;
+                    } else {
+                        console.log(red("├── ") + redBright("No index.ts or index.js file found in slash command " + folderName + ". Skipping."));
+                        continue;
+                    }
+
+                    slashCommand = (await import(filePath)).default;
+                } catch (e) {
+                    console.log(red("├── ") + redBright("An error occurred while loading slash command " + folderName + ":"));
+                    console.log(red("│") + redBright("      - " + e));
+                }
+
                 if (slashCommand instanceof SlashCommand) {
                     if (!slashCommand.builder.name) {
                         slashCommand.setName(folderName);
@@ -67,13 +90,22 @@ export class SlashCommandRegistrar {
                         }
                     }
 
-                    fs.readdirSync(`${this.srcPath}/SlashCommands/${folder}`).forEach((file) => {
+                    const subFolders = fs.readdirSync(`${this.srcPath}/SlashCommands/${folder}`)
+                    for (const file of subFolders) {
                         if (fs.lstatSync(`${this.srcPath}/SlashCommands/${folder}/${file}`).isDirectory()) {
                             const subFolderName = file;
 
-                            fs.readdirSync(`${this.srcPath}/SlashCommands/${folder}/${file}`).forEach((subFile) => {
+                            const subFolderFiles = fs.readdirSync(`${this.srcPath}/SlashCommands/${folder}/${file}`)
+                            for (const subFile of subFolderFiles) {
                                 if (subFile.endsWith('index.ts')) {
-                                    const command = require(`${this.srcPath}/SlashCommands/${folder}/${subFolderName}/${subFile}`);
+                                    let command: SubCommand | undefined = undefined;
+
+                                    try {
+                                        command = (await import(`${this.srcPath}/SlashCommands/${folder}/${subFolderName}/${subFile}`)).default;
+                                    } catch (e) {
+                                        console.log(red("├── ") + redBright("An error occurred while loading slash command " + folderName + "/" + subFolderName + ":"));
+                                    }
+
                                     if (command instanceof SubCommand) {
                                         if (!command.builder.name) {
                                             command.setName(subFolderName);
@@ -85,18 +117,18 @@ export class SlashCommandRegistrar {
                                         }
                                     }
                                 }
-                            });
+                            }
                         }
-                    });
+                    }
 
                     this.commands[slashCommand.builder.name] = slashCommand;
                 }
             }
-        });
+        }
 
         this.logLine(yellow("│"));
     }
-    
+
     async registerCommands(
         token: string,
         clientId: string,

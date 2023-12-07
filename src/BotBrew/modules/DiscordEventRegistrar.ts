@@ -1,7 +1,9 @@
 import {Client} from "discord.js";
-import {gray, red, redBright, yellow} from "chalk-advanced";
+import chalk from "chalk-advanced";
 import fs from "fs";
-import {DiscordEvent} from "./DiscordEvent";
+import {DiscordEvent} from "./DiscordEvent.js";
+
+const {red, redBright, yellow, gray} = chalk;
 
 export class DiscordEventRegistrar {
     srcPath: string;
@@ -32,10 +34,18 @@ export class DiscordEventRegistrar {
         this.logLine(yellow("├── ") + gray("Loading Discord events..."));
 
         // iterate through files in Events folder
-        fs.readdirSync(`${this.srcPath}/Events`).forEach((eventFile) => {
+        const eventFiles = fs.readdirSync(`${this.srcPath}/Events`)
+        for (const eventFile of eventFiles) {
             if (eventFile.endsWith(".ts")) {
                 const eventFileName = eventFile.split(".")[0];
-                let discordEvent: DiscordEvent | undefined = require(`${this.srcPath}/Events/${eventFile}`);
+                let discordEvent: DiscordEvent | undefined = undefined;
+
+                try {
+                    discordEvent = (await import(`${this.srcPath}/Events/${eventFile}`)).default;
+                } catch (e) {
+                    console.log(red("├── ") + redBright("An error occurred while loading event " + eventFileName + ":"));
+                }
+
                 if (discordEvent instanceof DiscordEvent) {
                     if (!discordEvent.name) {
                         discordEvent.setName(eventFileName);
@@ -45,7 +55,7 @@ export class DiscordEventRegistrar {
                     this.events[discordEvent.name] = discordEvent;
                 }
             }
-        });
+        }
 
         if (Object.keys(this.events).length === 0) {
             this.logLine(yellow("│") + gray("      - No events found."));
