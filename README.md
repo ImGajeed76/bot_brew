@@ -109,3 +109,6 @@ module.exports = new SlashCommand()
 
 ## License
 BotBrew is [ISC licensed.](https://opensource.org/license/isc-license-txt/)
+
+---
+Built with ❤️ by [Oliver Seifert](https://oseifert.ch)
